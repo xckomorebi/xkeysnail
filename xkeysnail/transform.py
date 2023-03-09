@@ -45,6 +45,7 @@ def get_class_name(window):
 
 
 _pressed_modifier_keys = set()
+_raw_pressed_modifier_keys = set()
 
 
 def update_pressed_modifier_keys(key, action):
@@ -54,9 +55,19 @@ def update_pressed_modifier_keys(key, action):
         _pressed_modifier_keys.discard(key)
 
 
+def update_raw_pressed_modifier_keys(key, action):
+    if action.is_pressed():
+        _raw_pressed_modifier_keys.add(key)
+    else:
+        _raw_pressed_modifier_keys.discard(key)
+
+
 def get_pressed_modifiers():
     return {Modifier.from_key(key) for key in _pressed_modifier_keys}
 
+
+def get_raw_pressed_modifiers():
+    return {Modifier.from_key(key) for key in _raw_pressed_modifier_keys}
 
 # ============================================================ #
 
@@ -189,6 +200,39 @@ _mode_maps = None
 escape_next_key = {}
 pass_through_key = {}
 
+def define_global_bypassed_combo(combos):
+    try:
+        for combo in combos:
+            add_one_combo(combo)
+    except Exception as e:
+        print(e)
+
+
+def add_one_combo(combo):
+    key_added = []
+    modifiers = list(combo.modifiers)
+    _add_one_combo(modifiers, key_added, combo.key)
+
+def _add_one_combo(modifiers, key_added, key):
+    if len(key_added) == len(modifiers):
+        _global_bypassed_combo.add(Combo(set(key_added), key))
+        return
+    else:
+        i = len(key_added)
+        cur_mod = modifiers[i]
+        if cur_mod.is_specified():
+            key_added.append(cur_mod)
+            _add_one_combo(modifiers, key_added, key)
+            key_added.pop()
+        else:
+            key_added.append(cur_mod.to_left())
+            _add_one_combo(modifiers, key_added, key)
+            key_added.pop()
+            key_added.append(cur_mod.to_right())
+            _add_one_combo(modifiers, key_added, key)
+            key_added.pop()
+            
+
 
 def define_keymap(condition, mappings, name="Anonymous keymap"):
     global _toplevel_keymaps
@@ -247,6 +291,10 @@ def define_keymap(condition, mappings, name="Anonymous keymap"):
 # ============================================================
 # Key handler
 # ============================================================
+
+# bypassed combos, ignore mod map
+_global_bypassed_combo = set()
+
 
 # keycode translation
 # e.g., { Key.CAPSLOCK: Key.LEFT_CTRL }
@@ -395,6 +443,7 @@ def on_event(event, device_name, quiet):
                 active_mod_map = mod_map
                 break
     if active_mod_map and key in active_mod_map:
+        update_raw_pressed_modifier_keys(key, action)
         key = active_mod_map[key]
 
     active_multipurpose_map = _multipurpose_map
@@ -450,6 +499,15 @@ def transform_key(key, action, wm_class=None, quiet=False):
     global _toplevel_keymaps
 
     combo = Combo(get_pressed_modifiers(), key)
+    raw_combo = Combo(get_raw_pressed_modifiers(), key)
+    
+    if raw_combo in _global_bypassed_combo:
+        if not quiet:
+            print("Bypassed Combo: ", raw_combo)
+        reset_mode = handle_commands(combo, key, action)
+        if reset_mode:
+            _mode_maps = None
+        return
 
     if _mode_maps is escape_next_key:
         print("Escape key: {}".format(combo))
