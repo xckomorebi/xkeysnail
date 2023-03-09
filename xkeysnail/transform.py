@@ -432,6 +432,10 @@ def on_event(event, device_name, quiet):
     wm_class = None
     # translate keycode (like xmodmap)
     active_mod_map = _mod_map
+    
+    if key in Modifier.get_all_keys():
+        update_raw_pressed_modifier_keys(key, action)
+    
     if _conditional_mod_map:
         wm_class = get_active_window_wm_class()
         for condition, mod_map in _conditional_mod_map:
@@ -443,7 +447,6 @@ def on_event(event, device_name, quiet):
                 active_mod_map = mod_map
                 break
     if active_mod_map and key in active_mod_map:
-        update_raw_pressed_modifier_keys(key, action)
         key = active_mod_map[key]
 
     active_multipurpose_map = _multipurpose_map
