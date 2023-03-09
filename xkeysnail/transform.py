@@ -504,7 +504,7 @@ def transform_key(key, action, wm_class=None, quiet=False):
     if raw_combo in _global_bypassed_combo:
         if not quiet:
             print("Bypassed Combo: ", raw_combo)
-        reset_mode = handle_commands(combo, key, action)
+        reset_mode = handle_commands(raw_combo, key, action)
         if reset_mode:
             _mode_maps = None
         return
